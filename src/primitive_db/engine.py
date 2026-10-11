@@ -17,7 +17,13 @@ from primitive_db.core import (
     table_exists,
     update,
 )
-from primitive_db.parser import parse_values, parse_where, split_arguments
+from primitive_db.decorators import handle_db_errors
+from primitive_db.parser import (
+    parse_command,
+    parse_values,
+    parse_where,
+    split_arguments,
+)
 from primitive_db.utils import (
     load_metadata,
     load_table_data,
@@ -45,34 +51,34 @@ def print_help() -> None:
     print("<command> help - справочная информация\n")
 
 
-def handle_exit(args: list[str], user_input: str) -> bool:
+@handle_db_errors
+def handle_exit(args: list[str], user_input: str) -> bool | None:
     """Выход из программы."""
 
     if len(args) != 1:
-        print(f"Некорректное значение: {user_input}. Попробуйте снова.")
-        return True
+        raise ValueError(user_input)
 
     return False
 
 
-def handle_help(args: list[str], user_input: str) -> bool:
+@handle_db_errors
+def handle_help(args: list[str], user_input: str) -> bool | None:
     """Показывает справку."""
 
     if len(args) != 1:
-        print(f"Некорректное значение: {user_input}. Попробуйте снова.")
-        return True
+        raise ValueError(user_input)
 
     print_help()
 
     return True
 
 
-def handle_list_tables(metadata: dict, args: list[str], user_input: str) -> bool:
+@handle_db_errors
+def handle_list_tables(metadata: dict, args: list[str], user_input: str) -> bool | None:
     """Выводит список таблиц."""
 
     if len(args) != 1:
-        print(f"Некорректное значение: {user_input}. Попробуйте снова.")
-        return True
+        raise ValueError(user_input)
 
     tables = list_tables(metadata)
 
@@ -85,14 +91,14 @@ def handle_list_tables(metadata: dict, args: list[str], user_input: str) -> bool
     return True
 
 
+@handle_db_errors
 def handle_create_table(
     metadata: dict, args: list[str], user_input: str, filepath: str
-) -> bool:
+) -> bool | None:
     """Создает новую таблицу."""
 
     if len(args) < 3 or not args[1]:
-        print(f"Некорректное значение: {user_input}. Попробуйте снова.")
-        return True
+        raise ValueError(user_input)
 
     table_name = args[1]
     columns = []
@@ -100,15 +106,15 @@ def handle_create_table(
     for column in args[2:]:
         parts = column.split(":")
         if len(parts) != 2 or not parts[0] or not parts[1]:
-            print(f"Некорректное значение: {column}. Попробуйте снова.")
-            return True
+            raise ValueError(column)
         columns.append((parts[0], parts[1]))
 
-    existed = table_name in metadata
     metadata = create_table(metadata, table_name, columns)
+    if metadata is None:
+        return True
     save_metadata(filepath, metadata)
 
-    if not existed and table_name in metadata:
+    if table_name in metadata:
         description = ", ".join(
             f"{name}:{type_}" for name, type_ in metadata[table_name]["columns"]
         )
@@ -120,21 +126,22 @@ def handle_create_table(
     return True
 
 
+@handle_db_errors
 def handle_drop_table(
     metadata: dict, args: list[str], user_input: str, filepath: str
-) -> bool:
+) -> bool | None:
     """Удаление таблицы."""
 
     if len(args) != 2 or not args[1]:
-        print(f"Некорректное значение: {user_input}. Попробуйте снова.")
-        return True
+        raise ValueError(user_input)
 
     table_name = args[1]
-    existed = table_name in metadata
     metadata = drop_table(metadata, table_name)
+    if metadata is None:
+        return True
     save_metadata(filepath, metadata)
 
-    if existed and table_name not in metadata:
+    if table_name not in metadata:
         print(f'Таблица "{table_name}" успешно удалена.')
 
     return True
@@ -157,8 +164,7 @@ def check_clause(
                 found = True
                 break
         if not found:
-            print(f'Некорректное значение: столбец "{name}". Попробуйте снова.')
-            return False
+            raise KeyError(f'Столбец "{name}" не существует.')
 
     return check_values_types(clause_columns, values)
 
@@ -183,18 +189,17 @@ def print_table(columns: list[Column], table_data: list[dict]) -> None:
     print(table)
 
 
-def handle_insert(metadata: dict, args: list[str], user_input: str) -> bool:
+@handle_db_errors
+def handle_insert(metadata: dict, args: list[str], user_input: str) -> bool | None:
     """Разбирает команду insert, добавляет запись и сохраняет данные."""
 
+    args = split_arguments(user_input)
+
     if len(args) < 5 or args[1] != "into" or args[3] != "values":
-        print(f"Некорректное значение: {user_input}. Попробуйте снова.")
-        return True
+        raise ValueError(user_input)
 
     table_name = shlex.split(args[2])[0]
     values = parse_values(" ".join(args[4:]))
-
-    if values is None:
-        return True
 
     table_data = insert(metadata, table_name, values)
 
@@ -206,71 +211,73 @@ def handle_insert(metadata: dict, args: list[str], user_input: str) -> bool:
     return True
 
 
-def handle_select(metadata: dict, args: list[str], user_input: str) -> bool:
+@handle_db_errors
+def handle_select(metadata: dict, args: list[str], user_input: str) -> bool | None:
     """Разбирает команду select и выводит выбранные записи."""
 
+    args = split_arguments(user_input)
+
     if len(args) < 3 or args[1] != "from":
-        print(f"Некорректное значение: {user_input}. Попробуйте снова.")
-        return True
+        raise ValueError(user_input)
 
     table_name = shlex.split(args[2])[0]
 
-    if not table_exists(metadata, table_name):
-        return True
+    table_exists(metadata, table_name)
 
     columns = metadata[table_name]["columns"]
     where_clause = None
 
     if len(args) > 3:
         if args[3] != "where":
-            print(f"Некорректное значение: {user_input}. Попробуйте снова.")
-            return True
+            raise ValueError(user_input)
         where_clause = parse_where(" ".join(args[4:]))
-        if where_clause is None or not check_clause(columns, where_clause):
-            return True
+        check_clause(columns, where_clause)
 
     table_data = load_table_data(table_name)
     selected_records = select(table_data, where_clause)
+    if selected_records is None:
+        return True
     print_table(columns, selected_records)
 
     return True
 
 
-def handle_update(metadata: dict, args: list[str], user_input: str) -> bool:
+@handle_db_errors
+def handle_update(metadata: dict, args: list[str], user_input: str) -> bool | None:
     """Разбирает команду update, обновляет записи и сохраняет данные."""
 
+    args = split_arguments(user_input)
+
     if len(args) < 4 or args[2] != "set" or "where" not in args[3:]:
-        print(f"Некорректное значение: {user_input}. Попробуйте снова.")
-        return True
+        raise ValueError(user_input)
 
     table_name = shlex.split(args[1])[0]
 
-    if not table_exists(metadata, table_name):
-        return True
+    table_exists(metadata, table_name)
 
     where_index = args.index("where", 3)
     set_clause = parse_where(" ".join(args[3:where_index]))
     where_clause = parse_where(" ".join(args[where_index + 1:]))
 
-    if set_clause is None or where_clause is None:
-        return True
-
     columns = metadata[table_name]["columns"]
 
-    if not check_clause(columns, set_clause):
-        return True
+    check_clause(columns, set_clause)
 
-    if not check_clause(columns, where_clause):
-        return True
+    check_clause(columns, where_clause)
 
     table_data = load_table_data(table_name)
     matched_records = select(table_data, where_clause)
+
+    if matched_records is None:
+        return True
 
     if not matched_records:
         print("Подходящих записей нет.")
         return True
 
     table_data = update(table_data, set_clause, where_clause)
+    if table_data is None:
+        return True
     save_table_data(table_name, table_data)
 
     for record in matched_records:
@@ -279,36 +286,38 @@ def handle_update(metadata: dict, args: list[str], user_input: str) -> bool:
     return True
 
 
-def handle_delete(metadata: dict, args: list[str], user_input: str) -> bool:
+@handle_db_errors
+def handle_delete(metadata: dict, args: list[str], user_input: str) -> bool | None:
     """Разбирает команду delete, удаляет записи и сохраняет данные."""
 
+    args = split_arguments(user_input)
+
     if len(args) < 5 or args[1] != "from" or args[3] != "where":
-        print(f"Некорректное значение: {user_input}. Попробуйте снова.")
-        return True
+        raise ValueError(user_input)
 
     table_name = shlex.split(args[2])[0]
 
-    if not table_exists(metadata, table_name):
-        return True
+    table_exists(metadata, table_name)
 
     where_clause = parse_where(" ".join(args[4:]))
 
-    if where_clause is None:
-        return True
-
     columns = metadata[table_name]["columns"]
 
-    if not check_clause(columns, where_clause):
-        return True
+    check_clause(columns, where_clause)
 
     table_data = load_table_data(table_name)
     matched_records = select(table_data, where_clause)
+
+    if matched_records is None:
+        return True
 
     if not matched_records:
         print("Подходящих записей нет.")
         return True
 
     table_data = delete(table_data, where_clause)
+    if table_data is None:
+        return True
     save_table_data(table_name, table_data)
 
     for record in matched_records:
@@ -317,17 +326,16 @@ def handle_delete(metadata: dict, args: list[str], user_input: str) -> bool:
     return True
 
 
-def handle_info(metadata: dict, args: list[str], user_input: str) -> bool:
+@handle_db_errors
+def handle_info(metadata: dict, args: list[str], user_input: str) -> bool | None:
     """Выводит имя таблицы, ее столбцы и количество записей."""
 
     if len(args) != 2:
-        print(f"Некорректное значение: {user_input}. Попробуйте снова.")
-        return True
+        raise ValueError(user_input)
 
     table_name = args[1]
 
-    if not table_exists(metadata, table_name):
-        return True
+    table_exists(metadata, table_name)
 
     columns = metadata[table_name]["columns"]
     description = ", ".join(f"{name}:{type_}" for name, type_ in columns)
@@ -341,6 +349,13 @@ def handle_info(metadata: dict, args: list[str], user_input: str) -> bool:
     return True
 
 
+@handle_db_errors
+def handle_unknown_command(command: str) -> None:
+    """Сообщает об отсутствии введенной команды."""
+
+    raise NotImplementedError(command)
+
+
 def run() -> None:
     """Запускает цикл управления таблицами с сохранением метаданных в JSON."""
 
@@ -351,18 +366,14 @@ def run() -> None:
         metadata = load_metadata(filepath)
         user_input = prompt.string("Введите команду: ")
 
-        try:
-            args = shlex.split(user_input)
-        except ValueError:
-            print(f"Некорректное значение: {user_input}. Попробуйте снова.")
-            continue
+        args = parse_command(user_input)
 
         if not args:
             continue
 
         command = args[0]
         if command == "exit":
-            if not handle_exit(args, user_input):
+            if handle_exit(args, user_input) is False:
                 break
         elif command == "help":
             handle_help(args, user_input)
@@ -373,9 +384,6 @@ def run() -> None:
         elif command == "drop_table":
             handle_drop_table(metadata, args, user_input, filepath)
         elif command in ("insert", "select", "update", "delete"):
-            args = split_arguments(user_input)
-            if args is None:
-                continue
             if command == "insert":
                 handle_insert(metadata, args, user_input)
             elif command == "select":
@@ -387,4 +395,4 @@ def run() -> None:
         elif command == "info":
             handle_info(metadata, args, user_input)
         else:
-            print(f"Функции {command} нет. Попробуйте снова.")
+            handle_unknown_command(command)

@@ -1,10 +1,14 @@
 """Модуль предназначен для описания основной логики работы с таблицами и данными."""
 
+from primitive_db.decorators import handle_db_errors
 from primitive_db.utils import load_table_data
 
 type Column = tuple[str, str]
 
-def create_table(metadata: dict, table_name: str, columns: list[Column]) -> dict:
+@handle_db_errors
+def create_table(
+    metadata: dict, table_name: str, columns: list[Column]
+) -> dict | None:
     """
     Создает таблицу `table_name`. Автоматически создает колонку ID,
         если не была задана пользователем.
@@ -22,8 +26,7 @@ def create_table(metadata: dict, table_name: str, columns: list[Column]) -> dict
     exists_tables = metadata.keys()
 
     if table_name in exists_tables:
-        print(f'Ошибка: Таблица "{table_name}" уже существует.')
-        return metadata
+        raise ValueError(f'Таблица "{table_name}" уже существует')
 
     added_columns = [["ID", "int"]]
 
@@ -31,19 +34,14 @@ def create_table(metadata: dict, table_name: str, columns: list[Column]) -> dict
         name, type_ = column
 
         if type_ not in ("int", "str", "bool"):
-            print(
-                f'Ошибка: Тип колонки "{name}" неправильный',
-                'Допустимые значения: int, str, bool.'
+            raise ValueError(
+                f'Тип колонки "{name}" неправильный. '
+                'Допустимые значения: int, str, bool'
             )
-            return metadata
 
         if name == "ID":
             if type_ != "int":
-                print(
-                    f'Ошибка: Тип колонки "{name}" неправильный.',
-                    'Допустимое значение: int.'
-                )
-                return metadata
+                raise ValueError('Столбец "ID" должен иметь тип int')
             continue
 
         added_columns.append([name, type_])
@@ -53,16 +51,13 @@ def create_table(metadata: dict, table_name: str, columns: list[Column]) -> dict
     return metadata
 
 
-def drop_table(metadata: dict, table_name: str) -> dict:
+@handle_db_errors
+def drop_table(metadata: dict, table_name: str) -> dict | None:
     """
     Удаляет таблицу из `metadata`, если она там есть, иначе показывает ошибку.
     """
 
-    exists_tables = metadata.keys()
-
-    if table_name not in exists_tables:
-        print(f'Ошибка: Таблица "{table_name}" не существует.')
-        return metadata
+    table_exists(metadata, table_name)
 
     metadata.pop(table_name)
 
@@ -78,11 +73,10 @@ def list_tables(metadata: dict) -> list[str]:
 
 
 def table_exists(metadata: dict, table_name: str) -> bool:
-    """Проверяет существование таблицы и выводит ошибку, если ее нет."""
+    """Проверяет существование таблицы; при отсутствии вызывает KeyError."""
 
     if table_name not in metadata:
-        print(f'Ошибка: Таблица "{table_name}" не существует.')
-        return False
+        raise KeyError(f'Таблица "{table_name}" не существует.')
 
     return True
 
@@ -103,11 +97,10 @@ def check_values_count(columns: list[Column], values: list[str | int | bool]) ->
     """Проверяет, что для каждого столбца передано одно значение."""
 
     if len(values) != len(columns):
-        print(
-            f"Ошибка: Ожидалось значений: {len(columns)}, "
-            f"получено: {len(values)}."
+        raise ValueError(
+            f"Ожидалось значений: {len(columns)}, "
+            f"получено: {len(values)}"
         )
-        return False
 
     return True
 
@@ -128,11 +121,7 @@ def check_values_types(columns: list[Column], values: list[str | int | bool]) ->
             valid = False
 
         if not valid:
-            print(
-                f'Некорректное значение: {value}. '
-                f'Столбец "{name}" должен иметь тип {type_}. Попробуйте снова.'
-            )
-            return False
+            raise ValueError(f'{value}. Столбец "{name}" должен иметь тип {type_}')
 
     return True
 
@@ -163,21 +152,18 @@ def create_record(
     return record
 
 
+@handle_db_errors
 def insert(
     metadata: dict, table_name: str, values: list[str | int | bool]
 ) -> list[dict] | None:
     """Добавляет запись и возвращает данные таблицы; при ошибке возвращает None."""
 
-    if not table_exists(metadata, table_name):
-        return None
+    table_exists(metadata, table_name)
 
     columns = get_insert_columns(metadata[table_name]["columns"])
 
-    if not check_values_count(columns, values):
-        return None
-
-    if not check_values_types(columns, values):
-        return None
+    check_values_count(columns, values)
+    check_values_types(columns, values)
 
     table_data = load_table_data(table_name)
     record_id = generate_record_id(table_data)
@@ -197,10 +183,11 @@ def record_matches(record: dict, where_clause: dict[str, str | int | bool]) -> b
     return True
 
 
+@handle_db_errors
 def select(
     table_data: list[dict],
     where_clause: dict[str, str | int | bool] | None = None,
-) -> list[dict]:
+) -> list[dict] | None:
     """Возвращает все записи при where_clause is None или записи по условию."""
 
     if where_clause is None:
@@ -224,11 +211,12 @@ def update_record(record: dict, set_clause: dict[str, str | int | bool]) -> dict
     return record
 
 
+@handle_db_errors
 def update(
     table_data: list[dict],
     set_clause: dict[str, str | int | bool],
     where_clause: dict[str, str | int | bool],
-) -> list[dict]:
+) -> list[dict] | None:
     """Обновляет записи по условию и возвращает измененные данные таблицы."""
 
     for record in table_data:
@@ -238,9 +226,10 @@ def update(
     return table_data
 
 
+@handle_db_errors
 def delete(
     table_data: list[dict], where_clause: dict[str, str | int | bool]
-) -> list[dict]:
+) -> list[dict] | None:
     """Возвращает список записей, оставшихся после удаления по условию."""
 
     remaining_records = []
