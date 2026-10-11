@@ -158,3 +158,26 @@ def insert(
     record = create_record(columns, values, record_id)
     table_data.append(record)
     return table_data
+
+
+def record_matches(record: dict, where_clause: dict[str, str | int | bool]) -> bool:
+    """Проверяет, совпадают ли значения записи со всеми условиями."""
+    for column, value in where_clause.items():
+        if column not in record or record[column] != value:
+            return False
+    return True
+
+
+def select(
+    table_data: list[dict],
+    where_clause: dict[str, str | int | bool] | None = None,
+) -> list[dict]:
+    """Возвращает все записи (при `where_clause is None`) или только записи, подходящие под условие."""
+    if where_clause is None:
+        return table_data
+
+    selected_records = []
+    for record in table_data:
+        if record_matches(record, where_clause):
+            selected_records.append(record)
+    return selected_records
