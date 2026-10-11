@@ -172,7 +172,7 @@ def select(
     table_data: list[dict],
     where_clause: dict[str, str | int | bool] | None = None,
 ) -> list[dict]:
-    """Возвращает все записи (при `where_clause is None`) или только записи, подходящие под условие."""
+    """Возвращает все записи при where_clause is None или записи по условию."""
     if where_clause is None:
         return table_data
 
@@ -181,3 +181,33 @@ def select(
         if record_matches(record, where_clause):
             selected_records.append(record)
     return selected_records
+
+
+def update_record(record: dict, set_clause: dict[str, str | int | bool]) -> dict:
+    """Изменяет поля одной записи согласно переданным значениям."""
+    for column, value in set_clause.items():
+        record[column] = value
+    return record
+
+
+def update(
+    table_data: list[dict],
+    set_clause: dict[str, str | int | bool],
+    where_clause: dict[str, str | int | bool],
+) -> list[dict]:
+    """Обновляет записи по условию и возвращает измененные данные таблицы."""
+    for record in table_data:
+        if record_matches(record, where_clause):
+            update_record(record, set_clause)
+    return table_data
+
+
+def delete(
+    table_data: list[dict], where_clause: dict[str, str | int | bool]
+) -> list[dict]:
+    """Возвращает список записей, оставшихся после удаления по условию."""
+    remaining_records = []
+    for record in table_data:
+        if not record_matches(record, where_clause):
+            remaining_records.append(record)
+    return remaining_records
