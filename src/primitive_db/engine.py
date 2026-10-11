@@ -1,6 +1,8 @@
 """Модуль отвечает за запуск, цикл и разбор команд пользователя."""
 
 import shlex
+from collections.abc import Callable
+from typing import Any
 
 import prompt
 from prettytable import PrettyTable
@@ -17,7 +19,7 @@ from primitive_db.core import (
     table_exists,
     update,
 )
-from primitive_db.decorators import handle_db_errors
+from primitive_db.decorators import create_cacher, handle_db_errors
 from primitive_db.parser import (
     parse_command,
     parse_values,
@@ -212,7 +214,12 @@ def handle_insert(metadata: dict, args: list[str], user_input: str) -> bool | No
 
 
 @handle_db_errors
-def handle_select(metadata: dict, args: list[str], user_input: str) -> bool | None:
+def handle_select(
+    metadata: dict,
+    args: list[str],
+    user_input: str,
+    cache_result: Callable[[str, Callable[[], Any]], Any],
+) -> bool | None:
     """Разбирает команду select и выводит выбранные записи."""
 
     args = split_arguments(user_input)
@@ -233,8 +240,14 @@ def handle_select(metadata: dict, args: list[str], user_input: str) -> bool | No
         where_clause = parse_where(" ".join(args[4:]))
         check_clause(columns, where_clause)
 
-    table_data = load_table_data(table_name)
-    selected_records = select(table_data, where_clause)
+    def get_records() -> list[dict] | None:
+        """Загружает данные таблицы и выбирает записи по условию."""
+
+        table_data = load_table_data(table_name)
+        return select(table_data, where_clause)
+
+    key = str((table_name, where_clause))
+    selected_records = cache_result(key, get_records)
     if selected_records is None:
         return True
     print_table(columns, selected_records)
@@ -360,6 +373,7 @@ def run() -> None:
     """Запускает цикл управления таблицами с сохранением метаданных в JSON."""
 
     filepath = "db_meta.json"
+    cache_result = create_cacher()
     print_help()
 
     while True:
@@ -387,7 +401,7 @@ def run() -> None:
             if command == "insert":
                 handle_insert(metadata, args, user_input)
             elif command == "select":
-                handle_select(metadata, args, user_input)
+                handle_select(metadata, args, user_input, cache_result)
             elif command == "update":
                 handle_update(metadata, args, user_input)
             elif command == "delete":
@@ -396,3 +410,6 @@ def run() -> None:
             handle_info(metadata, args, user_input)
         else:
             handle_unknown_command(command)
+
+        if command in ("create_table", "drop_table", "insert", "update", "delete"):
+            cache_result = create_cacher()

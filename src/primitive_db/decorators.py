@@ -1,5 +1,6 @@
 """Декораторы для обработки ошибок базы данных."""
 
+import time
 from collections.abc import Callable
 from functools import wraps
 from typing import Any
@@ -45,3 +46,37 @@ def confirm_action(action_name: str) -> Callable[..., Any]:
         return wrapper
 
     return decorator
+
+
+def log_time(function: Callable[..., Any]) -> Callable[..., Any]:
+    """Измеряет время выполнения функции и выводит его в секундах."""
+
+    @wraps(function)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        """Вызывает функцию, выводит время и возвращает ее результат."""
+
+        started = time.monotonic()
+        result = function(*args, **kwargs)
+        elapsed = time.monotonic() - started
+
+        print(f"Функция {function.__name__} выполнилась за {elapsed:.3f} секунд")
+
+        return result
+
+    return wrapper
+
+
+def create_cacher() -> Callable[[str, Callable[[], Any]], Any]:
+    """Создает функцию, которая хранит результаты вычислений в замыкании."""
+
+    cache: dict[str, Any] = {}
+
+    def cache_result(key: str, value_func: Callable[[], Any]) -> Any:
+        """Возвращает результат из кэша или вычисляет и сохраняет его."""
+
+        if key not in cache:
+            cache[key] = value_func()
+
+        return cache[key]
+
+    return cache_result

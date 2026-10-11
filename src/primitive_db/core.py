@@ -1,6 +1,6 @@
 """Модуль предназначен для описания основной логики работы с таблицами и данными."""
 
-from primitive_db.decorators import confirm_action, handle_db_errors
+from primitive_db.decorators import confirm_action, handle_db_errors, log_time
 from primitive_db.utils import load_table_data
 
 type Column = tuple[str, str]
@@ -154,6 +154,7 @@ def create_record(
 
 
 @handle_db_errors
+@log_time
 def insert(
     metadata: dict, table_name: str, values: list[str | int | bool]
 ) -> list[dict] | None:
@@ -185,6 +186,7 @@ def record_matches(record: dict, where_clause: dict[str, str | int | bool]) -> b
 
 
 @handle_db_errors
+@log_time
 def select(
     table_data: list[dict],
     where_clause: dict[str, str | int | bool] | None = None,
