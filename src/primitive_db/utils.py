@@ -5,7 +5,8 @@ import json
 
 def load_metadata(filepath: str) -> dict:
     """
-    Загрузка файлов из JSON-файла по пути `filepath`. Если файл не найден, возвращается пустой словарь.
+    Загружает данные из JSON-файла по пути filepath.
+    Если файл не найден, возвращает пустой словарь.
     """
     try:
         with open(filepath, "r") as file:
