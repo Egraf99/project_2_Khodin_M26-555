@@ -1,5 +1,6 @@
 """Модуль предназначен для описания основной логики работы с таблицами и данными."""
 
+from primitive_db.constants import ID_COLUMN, VALID_TYPES
 from primitive_db.decorators import confirm_action, handle_db_errors, log_time
 from primitive_db.utils import load_table_data
 
@@ -28,18 +29,18 @@ def create_table(
     if table_name in exists_tables:
         raise ValueError(f'Таблица "{table_name}" уже существует')
 
-    added_columns = [["ID", "int"]]
+    added_columns = [[ID_COLUMN, "int"]]
 
     for column in columns:
         name, type_ = column
 
-        if type_ not in ("int", "str", "bool"):
+        if type_ not in VALID_TYPES:
             raise ValueError(
                 f'Тип колонки "{name}" неправильный. '
                 'Допустимые значения: int, str, bool'
             )
 
-        if name == "ID":
+        if name == ID_COLUMN:
             if type_ != "int":
                 raise ValueError('Столбец "ID" должен иметь тип int')
             continue
@@ -88,7 +89,7 @@ def get_insert_columns(columns: list[Column]) -> list[Column]:
     insert_columns = []
 
     for name, type_ in columns:
-        if name != "ID":
+        if name != ID_COLUMN:
             insert_columns.append((name, type_))
 
     return insert_columns
@@ -133,8 +134,8 @@ def generate_record_id(table_data: list[dict]) -> int:
     max_id = 0
 
     for record in table_data:
-        if record["ID"] > max_id:
-            max_id = record["ID"]
+        if record[ID_COLUMN] > max_id:
+            max_id = record[ID_COLUMN]
 
     return max_id + 1
 
@@ -144,7 +145,7 @@ def create_record(
 ) -> dict:
     """Создает словарь записи из ID, столбцов и значений."""
 
-    record = {"ID": record_id}
+    record = {ID_COLUMN: record_id}
 
     for index in range(len(columns)):
         name = columns[index][0]

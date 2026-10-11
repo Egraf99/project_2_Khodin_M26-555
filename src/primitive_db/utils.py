@@ -2,6 +2,8 @@
 
 import json
 
+from primitive_db.constants import DATA_DIR
+
 
 def load_metadata(filepath: str) -> dict:
     """
@@ -26,7 +28,7 @@ def save_metadata(filepath: str, data: dict) -> None:
 def load_table_data(table_name: str) -> list[dict]:
     """Загружает записи таблицы; если файла нет, возвращает пустой список."""
     try:
-        with open(f"data/{table_name}.json", "r") as file:
+        with open(f"{DATA_DIR}/{table_name}.json", "r") as file:
             return json.load(file)
     except FileNotFoundError:
         return []
@@ -34,5 +36,5 @@ def load_table_data(table_name: str) -> list[dict]:
 
 def save_table_data(table_name: str, data: list[dict]) -> None:
     """Сохраняет записи таблицы в JSON-файл."""
-    with open(f"data/{table_name}.json", "w") as file:
+    with open(f"{DATA_DIR}/{table_name}.json", "w") as file:
         json.dump(data, file)

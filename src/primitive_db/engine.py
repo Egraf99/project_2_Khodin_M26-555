@@ -7,6 +7,7 @@ from typing import Any
 import prompt
 from prettytable import PrettyTable
 
+from primitive_db.constants import ID_COLUMN, META_FILE
 from primitive_db.core import (
     Column,
     check_values_types,
@@ -207,7 +208,7 @@ def handle_insert(metadata: dict, args: list[str], user_input: str) -> bool | No
 
     if table_data is not None:
         save_table_data(table_name, table_data)
-        record_id = table_data[-1]["ID"]
+        record_id = table_data[-1][ID_COLUMN]
         print(f'Запись с ID={record_id} добавлена в таблицу "{table_name}".')
 
     return True
@@ -294,7 +295,7 @@ def handle_update(metadata: dict, args: list[str], user_input: str) -> bool | No
     save_table_data(table_name, table_data)
 
     for record in matched_records:
-        print(f'Запись с ID={record["ID"]} в таблице "{table_name}" обновлена.')
+        print(f'Запись с ID={record[ID_COLUMN]} в таблице "{table_name}" обновлена.')
 
     return True
 
@@ -334,7 +335,7 @@ def handle_delete(metadata: dict, args: list[str], user_input: str) -> bool | No
     save_table_data(table_name, table_data)
 
     for record in matched_records:
-        print(f'Запись с ID={record["ID"]} удалена из таблицы "{table_name}".')
+        print(f'Запись с ID={record[ID_COLUMN]} удалена из таблицы "{table_name}".')
 
     return True
 
@@ -372,7 +373,7 @@ def handle_unknown_command(command: str) -> None:
 def run() -> None:
     """Запускает цикл управления таблицами с сохранением метаданных в JSON."""
 
-    filepath = "db_meta.json"
+    filepath = META_FILE
     cache_result = create_cacher()
     print_help()
 
