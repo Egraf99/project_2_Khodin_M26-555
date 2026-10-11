@@ -1,0 +1,17 @@
+[project]
+name = "primitive-db"
+version = "0.1.0"
+description = "Project for primitive_db"
+readme = "README.md"
+authors = [
+    { name = "Khodin Egor", email = "khodinegor@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = []
+
+[project.scripts]
+project = "primitive_db:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
