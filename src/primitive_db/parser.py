@@ -4,10 +4,12 @@ import shlex
 
 
 def split_arguments(text: str) -> list[str] | None:
-    """Разделяет текст на значения, запятые и знаки равенства."""
-    lexer = shlex.shlex(text, posix=False, punctuation_chars=",=")
+    """Разделяет текст на значения, запятые, скобки и знаки равенства."""
+
+    lexer = shlex.shlex(text, posix=False, punctuation_chars="(),=")
     lexer.whitespace_split = True
     lexer.commenters = ""
+
     try:
         return list(lexer)
     except ValueError:
@@ -17,7 +19,9 @@ def split_arguments(text: str) -> list[str] | None:
 
 def parse_value(value: str) -> str | int | bool | None:
     """Преобразует текст в строку в кавычках, целое число или bool."""
+
     value = value.strip()
+
     if len(value) >= 2 and value[0] in ('"', "'") and value[-1] == value[0]:
         try:
             parts = shlex.split(value)
@@ -36,26 +40,33 @@ def parse_value(value: str) -> str | int | bool | None:
             pass
 
     print(f"Некорректное значение: {value}. Попробуйте снова.")
+
     return None
 
 
 def parse_values(text: str) -> list[str | int | bool] | None:
     """Разбирает значения в скобках, разделенные запятыми, для insert."""
+
     text = text.strip()
+
     if not text.startswith("(") or not text.endswith(")"):
         print(f"Некорректное значение: {text}. Попробуйте снова.")
         return None
 
     parts = split_arguments(text[1:-1])
+
     if parts is None:
         return None
+
     if not parts:
         return []
+
     if len(parts) % 2 == 0:
         print(f"Некорректное значение: {text}. Попробуйте снова.")
         return None
 
     values = []
+
     for index in range(len(parts)):
         if index % 2 == 1:
             if parts[index] != ",":
@@ -66,19 +77,24 @@ def parse_values(text: str) -> list[str | int | bool] | None:
             if value is None:
                 return None
             values.append(value)
+
     return values
 
 
 def parse_where(text: str) -> dict[str, str | int | bool] | None:
     """Разбирает пары столбец = значение для where и set."""
+
     parts = split_arguments(text)
+
     if parts is None:
         return None
+
     if not parts or len(parts) % 4 != 3:
         print(f"Некорректное значение: {text}. Попробуйте снова.")
         return None
 
     conditions = {}
+
     for index in range(0, len(parts), 4):
         column = parts[index]
         if column in (",", "=") or parts[index + 1] != "=":
@@ -91,4 +107,5 @@ def parse_where(text: str) -> dict[str, str | int | bool] | None:
         if value is None:
             return None
         conditions[column] = value
+
     return conditions
