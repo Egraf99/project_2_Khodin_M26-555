@@ -10,8 +10,6 @@ def handle_db_errors(function: Callable[..., Any]) -> Callable[..., Any]:
 
     @wraps(function)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
-        """Вызывает функцию и обрабатывает ошибки файлов, ключей и значений."""
-
         try:
             return function(*args, **kwargs)
         except FileNotFoundError:
@@ -26,3 +24,24 @@ def handle_db_errors(function: Callable[..., Any]) -> Callable[..., Any]:
         return None
 
     return wrapper
+
+
+def confirm_action(action_name: str) -> Callable[..., Any]:
+    """Создает декоратор подтверждения действия ответом y."""
+
+    def decorator(function: Callable[..., Any]) -> Callable[..., Any]:
+
+        @wraps(function)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            answer = input(
+                f'Вы уверены, что хотите выполнить "{action_name}"? [y/n]: '
+            )
+            if answer != "y":
+                print("Операция отменена.")
+                return None
+
+            return function(*args, **kwargs)
+
+        return wrapper
+
+    return decorator

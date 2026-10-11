@@ -1,6 +1,6 @@
 """Модуль предназначен для описания основной логики работы с таблицами и данными."""
 
-from primitive_db.decorators import handle_db_errors
+from primitive_db.decorators import confirm_action, handle_db_errors
 from primitive_db.utils import load_table_data
 
 type Column = tuple[str, str]
@@ -52,6 +52,7 @@ def create_table(
 
 
 @handle_db_errors
+@confirm_action("удаление таблицы")
 def drop_table(metadata: dict, table_name: str) -> dict | None:
     """
     Удаляет таблицу из `metadata`, если она там есть, иначе показывает ошибку.
@@ -227,6 +228,7 @@ def update(
 
 
 @handle_db_errors
+@confirm_action("удаление записей")
 def delete(
     table_data: list[dict], where_clause: dict[str, str | int | bool]
 ) -> list[dict] | None:
