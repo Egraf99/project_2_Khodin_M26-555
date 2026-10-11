@@ -1,0 +1,1 @@
+{"users": {"columns": [["ID", "int"], ["name", "str"], ["v_flg", "bool"]]}}
