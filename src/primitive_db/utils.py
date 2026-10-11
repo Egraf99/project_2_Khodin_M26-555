@@ -22,14 +22,16 @@ def save_metadata(filepath: str, data: dict) -> None:
         json.dump(data, file)
 
 
-def generate_id(exists_ids: list[int]) -> int:
-    """
-    Генерирует уникальный ключ ID. Ключ не совпадает ни с одной строкой из `exists_ids`
-    """
-    existing_ids = set(exists_ids)
+def load_table_data(table_name: str) -> list[dict]:
+    """Загружает записи таблицы; если файла нет, возвращает пустой список."""
+    try:
+        with open(f"data/{table_name}.json", "r") as file:
+            return json.load(file)
+    except FileNotFoundError:
+        return []
 
-    for number in range(1, 10000000):
-        if number not in existing_ids:
-            return number
 
-    raise ValueError("Все идентификаторы до 7 цифр заняты.")
+def save_table_data(table_name: str, data: list[dict]) -> None:
+    """Сохраняет записи таблицы в JSON-файл."""
+    with open(f"data/{table_name}.json", "w") as file:
+        json.dump(data, file)

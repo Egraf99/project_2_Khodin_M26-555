@@ -1,10 +1,10 @@
 """Модуль предназначен для описания основной логики работы с таблицами и данными."""
 
-from typing import List
+from primitive_db.utils import load_table_data
 
 type Column = tuple[str, str]
 
-def create_table(metadata: dict, table_name: str, columns: List[Column]) -> dict:
+def create_table(metadata: dict, table_name: str, columns: list[Column]) -> dict:
     """
     Создает таблицу `table_name`. Автоматически создает колонку ID,
         если не была задана пользователем.
@@ -62,9 +62,99 @@ def drop_table(metadata: dict, table_name: str) -> dict:
     return metadata
 
 
-def list_tables(metadata: dict) -> list:
+def list_tables(metadata: dict) -> list[str]:
     """
     Возвращает список всех существующих таблиц.
     """
     return list(metadata.keys())
-    
+
+
+def table_exists(metadata: dict, table_name: str) -> bool:
+    """Проверяет существование таблицы и выводит ошибку, если ее нет."""
+    if table_name not in metadata:
+        print(f'Ошибка: Таблица "{table_name}" не существует.')
+        return False
+    return True
+
+
+def get_insert_columns(columns: list[Column]) -> list[Column]:
+    """Возвращает столбцы, значения которых вводит пользователь, без ID."""
+    insert_columns = []
+    for name, type_ in columns:
+        if name != "ID":
+            insert_columns.append((name, type_))
+    return insert_columns
+
+
+def check_values_count(columns: list[Column], values: list[str | int | bool]) -> bool:
+    """Проверяет, что для каждого столбца передано одно значение."""
+    if len(values) != len(columns):
+        print(
+            f"Ошибка: Ожидалось значений: {len(columns)}, "
+            f"получено: {len(values)}."
+        )
+        return False
+    return True
+
+
+def check_values_types(columns: list[Column], values: list[str | int | bool]) -> bool:
+    """Проверяет соответствие типов значений типам столбцов."""
+    for index in range(len(columns)):
+        name, type_ = columns[index]
+        value = values[index]
+        if type_ == "int":
+            valid = isinstance(value, int) and not isinstance(value, bool)
+        elif type_ == "str":
+            valid = isinstance(value, str)
+        elif type_ == "bool":
+            valid = isinstance(value, bool)
+        else:
+            valid = False
+
+        if not valid:
+            print(
+                f'Некорректное значение: {value}. '
+                f'Столбец "{name}" должен иметь тип {type_}. Попробуйте снова.'
+            )
+            return False
+    return True
+
+
+def generate_record_id(table_data: list[dict]) -> int:
+    """Возвращает максимальный ID существующих записей плюс один."""
+    max_id = 0
+    for record in table_data:
+        if record["ID"] > max_id:
+            max_id = record["ID"]
+    return max_id + 1
+
+
+def create_record(
+    columns: list[Column], values: list[str | int | bool], record_id: int
+) -> dict:
+    """Создает словарь записи из ID, столбцов и значений."""
+    record = {"ID": record_id}
+    for index in range(len(columns)):
+        name = columns[index][0]
+        record[name] = values[index]
+    return record
+
+
+def insert(
+    metadata: dict, table_name: str, values: list[str | int | bool]
+) -> list[dict] | None:
+    """Добавляет запись и возвращает данные таблицы; при ошибке возвращает None."""
+    if not table_exists(metadata, table_name):
+        return None
+
+    columns = get_insert_columns(metadata[table_name]["columns"])
+    if not check_values_count(columns, values):
+        return None
+    if not check_values_types(columns, values):
+        return None
+
+    table_data = load_table_data(table_name)
+    record_id = generate_record_id(table_data)
+    record = create_record(columns, values, record_id)
+    table_data.append(record)
+    return table_data
